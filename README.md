@@ -22,4 +22,6 @@ optional arguments:
   --separator SEPARATOR, Optional separator string
   -s SEPARATOR
 
-  --filterMap, -fm       Look for LLAP/Map tasks only```
+  --filterMap, -fm       Look for LLAP/Map tasks only
+  --skipErrors, -e       Continue if input parsing errors are found.
+  ```

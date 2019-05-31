@@ -61,6 +61,7 @@ class EventHistParser:
     self.knownMapTasks = set()      # set of all tasks, belonging to LLAP Map vertices (from task_start)
     self.firstRow = True            # first row needs to dump header line for CSV
     self.taskLoop = 0               # total amount of processed events
+    self.parseErrors = -1           # keep track of JSON parsing errors
     self.filterLLAPMap = filterMap  # filter for LLAP Map tasks
 
   def readEventFile(self, filename):
@@ -83,8 +84,11 @@ class EventHistParser:
             entry = json.loads(line)              # parse the JSON
             self.handleEntry(shortFile, entry, t) # pass the JSON to the event processor
           except Exception as parseErr:
-            print(parseErr)
-            exit(8)
+            if self.parseErrors < 0:
+              print('Error parsing input file: {}'.format(parseErr))
+              exit(8)
+
+            self.parseErrors += 1                 # parsing JSON failed
 
   def isEventType(self, entry, typeName):
     '''Helper to figure out if an entry (JSON object as dictionary) represents
@@ -203,7 +207,12 @@ class EventHistParser:
 
   def dumpProgress(self, fileName):
     '''Writes the current progress with stats to the console.'''
-    print('{}: {}: {} - with {} open attempts'.format(fileName, self.taskLoop, self.taskStats, len(self.openAttempts)))
+    if self.parseErrors < 0:
+      print('{}: {}: {} - with {} open attempts'.format(fileName, self.taskLoop,
+                                                        self.taskStats, len(self.openAttempts)))
+    else:
+      print('{}: {}: {} - with {} open attempts ({} errors)'.format(fileName, self.taskLoop, self.taskStats,
+                                                                    len(self.openAttempts), self.parseErrors))
 
   def handleEntry(self, sourceFileName, entry, targetFile):
     ''' Processor for a single task event.
@@ -312,6 +321,7 @@ aParser.add_argument('inDir', help='Input directory with history event files', t
 aParser.add_argument('outFile', help='File name for the target CSV file', type=str)
 aParser.add_argument('--separator', '-s', help='Optional separator string', type=str)
 aParser.add_argument('--filterMap', '-fm', action='store_true', help='Look for LLAP/Map tasks only')
+aParser.add_argument('--skipErrors', '-e', action='store_true', help='Continue if input parsing errors are found.')
 
 args = aParser.parse_args()
 if os.path.isdir(args.inDir):
@@ -335,6 +345,10 @@ else:
 try:
   parser = EventHistParser(separator, outputFile, args.filterMap)
   allFiles = []
+
+  # continue on parsing errors
+  if args.skipErrors:
+    parser.parseErrors = 0
 
   # create (sorted) input file list
   for filename in os.listdir(inputDirectory):
